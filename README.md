@@ -1,2 +1,1 @@
-# edi_parser
-It is a parser that parse file with ANSI X12 edi format and converts it to json
+It is a simple parser that parses a file with ANSI X12 EDI format, creates document object, converts it to the python dictionary data type, and can store it as a JSON
