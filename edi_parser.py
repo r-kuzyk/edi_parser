@@ -1,31 +1,49 @@
 import json
 
+from data_elements.element import Element
 from data_elements.segment import Segment
 from edi_document import EdiDocument
 from pathlib import Path
 import time
 
+from utils.config import DocumentSettings
+
 
 class Parser:
 
     def __init__(self):
+        """Initialize EDI document structure"""
         self.edi_document = EdiDocument()
+        self.document = None
 
-    def parse_document(self, document):
-        document_text = self._validate_document(document)
+    def parse_document(self, document: str) -> EdiDocument:
+        """Parse the text document into an object
+        :param document:  file to be parsed.
+        """
+        self.document = document
+        document_text = self._validate_document()
         self.parse_data(document_text)
         return self.edi_document
 
     def parse_data(self, data):
         for row in data:
             segment = Segment(content=row)
-            segment.parse_segment()
+            self.parse_segment(segment)
             self._route_segment(segment)
         return self.edi_document
 
-    def _route_segment(self, segment):
+    def parse_segment(self, segment):
+        content_as_list = segment.content.strip().strip(segment.segment_delimiter).split(segment.element_delimiter)
+        segment.id = Element(content_as_list[0])
+        segment.description = DocumentSettings.segment_description.get(segment.id.content, 'No decription')
+
+        for element in content_as_list[1:]:
+            data_element = Element(element)
+            segment.data_elements.append(data_element)
+        return segment
+
+    def _route_segment(self, segment: Segment):
         """Determine what segment it is
-        :param segment:
         """
         if segment.id.content == 'ISA':
             self.edi_document.interchange.header = segment
@@ -42,11 +60,12 @@ class Parser:
         else:
             self.edi_document.body.add_segment(segment)
 
-    def _validate_document(self, document):
-        is_file = Path(document).is_file()
+    def _validate_document(self):
+        """Check if document exists"""
+        is_file = Path(self.document).is_file()
 
         if is_file:
-            with open(document, "r") as f:
+            with open(self.document, "r") as f:
                 document = f.readlines()
         else:
             raise FileNotFoundError
